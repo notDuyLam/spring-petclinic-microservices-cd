@@ -120,13 +120,13 @@ pipeline {
                     def genaiBranch = 'main'
 
                     if (modules.contains('spring-petclinic-customers-service')) {
-                        customersBranch = env.BRANCH_NAME
+                        customersBranch = env.COMMIT_HASH
                     }
                     if (modules.contains('spring-petclinic-vets-service')) {
-                        vetsBranch = env.BRANCH_NAME
+                        vetsBranch = env.COMMIT_HASH
                     }
                     if (modules.contains('spring-petclinic-visits-service')) {
-                        visitsBranch = env.BRANCH_NAME
+                        visitsBranch = env.COMMIT_HASH
                     }
 
                     build job: 'developer_build', 
