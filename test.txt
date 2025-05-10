@@ -1,0 +1,191 @@
+pipeline {
+    agent {
+        label 'k8s-master' // Assuming the k8s-master agent has kubectl, helm, and git installed
+    }
+
+    options {
+        // Clean workspace before starting the build
+        cleanWs()
+        // We are explicitly cloning, so skip the default checkout
+        skipDefaultCheckout(true)
+    }
+
+    parameters {
+        string(name: 'CUSTOMERS_SERVICE', defaultValue: 'main', description: 'Branch for customers service')
+        string(name: 'VETS_SERVICE',      defaultValue: 'main', description: 'Branch for vets service')
+        string(name: 'VISITS_SERVICE',    defaultValue: 'main', description: 'Branch for visits service')
+        string(name: 'GENAI_SERVICE',     defaultValue: 'main', description: 'Branch for genai service')
+        // Keep Helm release name as a parameter
+        string(name: 'HELM_RELEASE_NAME', defaultValue: 'spring-petclinic', description: 'Helm release name')
+    }
+
+    environment {
+        DOCKER_USERNAME = "tienminhktvn2"
+        GITHUB_USERNAME = "22120207"
+        PROJECT_NAME = "spring-petclinic-microservices"
+        // URLs for the application code and the Helm chart repository
+        SCM_REPO_URL = "https://github.com/${env.GITHUB_USERNAME}/${env.PROJECT_NAME}.git"
+        HELM_REPO_URL = "https://github.com/${env.GITHUB_USERNAME}/${env.PROJECT_NAME}-helm-chart.git" // Assuming your Helm chart is in a separate repo
+
+        // Define the directory where the Helm chart repo will be cloned
+        HELM_CHART_DIR = "helm-chart"
+        // Define the path where the generated values file will be saved (relative to the Helm chart dir)
+        GENERATED_VALUES_FILE_NAME = "generated-values.yaml"
+    }
+
+    stages {
+        stage('Checkout SCM') {
+            steps {
+                script {
+                    echo "Cloning SCM repository: ${env.SCM_REPO_URL}"
+                    // Clone the application code repository into a subdirectory named after the project
+                    sh "git clone ${env.SCM_REPO_URL} ${env.PROJECT_NAME}"
+
+                    // Change directory into the cloned SCM repository to get commit info
+                    dir("${env.PROJECT_NAME}") {
+                        // Get the first 8 characters of the SHA Git Commit for the current build (HEAD)
+                        def gitCommitHash = sh(script: "git rev-parse --short=8 HEAD", returnStdout: true).trim()
+                        env.CURRENT_BUILD_SHORT_COMMIT = gitCommitHash
+                        echo "Current build short commit hash: ${env.CURRENT_BUILD_SHORT_COMMIT}"
+
+                        // Get the first 3 characters of the commit hash for the namespace
+                        env.CURRENT_BUILD_SHORT_COMMIT_3_CHARS = gitCommitHash.substring(0, 3)
+                        echo "First 3 chars of commit hash: ${env.CURRENT_BUILD_SHORT_COMMIT_3_CHARS}"
+
+                        // Determine the dynamic namespace based on the commit hash
+                        env.DYNAMIC_NAMESPACE = "review-${env.CURRENT_BUILD_SHORT_COMMIT_3_CHARS}"
+                        echo "Determined dynamic namespace: ${env.DYNAMIC_NAMESPACE}"
+
+                        // Get the current branch name that triggered the build
+                        // env.BRANCH_NAME is a standard Jenkins variable
+                        def currentBranchName = env.BRANCH_NAME
+                        echo "Current build branch name: ${currentBranchName}"
+                        env.CURRENT_BUILD_BRANCH = currentBranchName // Store in env for later use
+                    }
+                }
+            }
+        }
+
+        stage('Checkout Helm Repository') {
+            steps {
+                script {
+                    echo "Cloning Helm repository: ${env.HELM_REPO_URL}"
+                    // Clone the Helm chart repository into a separate directory
+                    sh "git clone ${env.HELM_REPO_URL} ${env.HELM_CHART_DIR}"
+                }
+            }
+        }
+
+        stage('Create Values File') {
+            steps {
+                // Change directory into the cloned SCM repository (where we got commit info)
+                dir("${env.PROJECT_NAME}") {
+                    script {
+                        def modules = [
+                            [name: 'spring-petclinic-customers-service', branch: params.CUSTOMERS_SERVICE],
+                            [name: 'spring-petclinic-vets-service',       branch: params.VETS_SERVICE],
+                            [name: 'spring-petclinic-visits-service',     branch: params.VISITS_SERVICE],
+                            [name: 'spring-petclinic-gen-ai',             branch: params.GENAI_SERVICE]
+                        ]
+
+                        // Fetch all tags/branches in the SCM repo to get specific branch commits
+                        // This is needed if the parameters specify branches other than the one that triggered the build
+                        sh 'git fetch --all --tags'
+
+                        def moduleImageTags = [:] // Map to store determined image tags
+
+                        modules.each { m ->
+                            def branchName = m.branch
+
+                            // Get the first 8 characters of the SHA Git Commit for the specific branch (m.branch)
+                            // Use 'origin/' prefix to ensure you're checking the fetched remote branch
+                            def gitCommitHashForBranch = sh(script: "git rev-parse --short=8 origin/${branchName}", returnStdout: true).trim()
+
+                            def imageTag = 'latest' // Default tag
+
+                            // If the parameter branch is NOT 'main', use the commit hash of that specific branch as the tag
+                            if (m.branch != 'main') {
+                                imageTag = gitCommitHashForBranch
+                            } else {
+                                // If the parameter branch IS 'main', you might want to use 'latest' or
+                                // the commit hash of the 'main' branch. The current logic defaults to 'latest'.
+                                // If you want the commit hash of 'main', you'd use gitCommitHashForBranch here too.
+                                // imageTag = gitCommitHashForBranch // Uncomment this line if you want main branch commit hash as tag
+                            }
+
+                            echo "Module: ${m.name}, Parameter Branch: ${branchName}, Determined Tag: ${imageTag}"
+
+                            // Store the determined tag for each module
+                            moduleImageTags[m.name] = imageTag
+                        }
+
+                        // --- Construct the content of the values.yaml file ---
+                        // Use the dynamically generated namespace
+                        def valuesContent = """
+                        namespace: ${env.DYNAMIC_NAMESPACE}
+
+                        images:
+                        genaiService:
+                            repository: ${env.DOCKER_USERNAME}
+                            name: spring-petclinic-gen-ai # Ensure this matches the service name in your Helm chart
+                            tag: ${moduleImageTags['spring-petclinic-gen-ai']}
+                        customersService:
+                            repository: ${env.DOCKER_USERNAME}
+                            name: spring-petclinic-customers-service # Ensure this matches the service name in your Helm chart
+                            tag: ${moduleImageTags['spring-petclinic-customers-service']}
+                        vetsService:
+                            repository: ${env.DOCKER_USERNAME}
+                            name: spring-petclinic-vets-service # Ensure this matches the service name in your Helm chart
+                            tag: ${moduleImageTags['spring-petclinic-vets-service']}
+                        visitsService:
+                            repository: ${env.DOCKER_USERNAME}
+                            name: spring-petclinic-visits-service # Ensure this matches the service name in your Helm chart
+                            tag: ${moduleImageTags['spring-petclinic-visits-service']}
+                        """
+                        // Note: I've assumed the 'name' fields in the values.yaml match the 'name' fields in your 'modules' list.
+                        // Adjust 'name' fields in the valuesContent if your Helm chart expects different names.
+                        // Also, ensure the 'repository' field and image 'name' fields in your Helm chart's templates use the values from values.yaml.
+
+                        echo "Generated values.yaml content:\n${valuesContent}"
+
+                        // --- Write the content to the generated values file ---
+                        // Write the file into the cloned Helm chart repository directory
+                        // Use absolute path relative to workspace for clarity
+                        writeFile(file: "${WORKSPACE}/${env.HELM_CHART_DIR}/${env.GENERATED_VALUES_FILE_NAME}", text: valuesContent)
+                        echo "Created values file: ${env.HELM_CHART_DIR}/${env.GENERATED_VALUES_FILE_NAME}"
+                    }
+                }
+            }
+        }
+
+        stage('Deploy with Helm') {
+            steps {
+                // Change directory into the cloned Helm chart repository
+                dir("${env.HELM_CHART_DIR}") {
+                    script {
+                        echo "Deploying Helm chart to namespace: ${env.DYNAMIC_NAMESPACE}"
+                        // Use helm upgrade --install to deploy or update the release
+                        // -i, --install: if a release by this name doesn't already exist, run an install
+                        // -n, --namespace: target namespace (using the dynamic namespace)
+                        // -f: specify values from a file (using the generated values file)
+                        // . : deploy the chart in the current directory (which is the Helm chart dir)
+                        def helmCommand = "helm upgrade --install ${env.HELM_RELEASE_NAME} . -n ${env.DYNAMIC_NAMESPACE} -f ${env.GENERATED_VALUES_FILE_NAME} --create-namespace" // Added --create-namespace
+
+                        echo "Executing Helm command: ${helmCommand}"
+                        sh "${helmCommand}"
+
+                        echo "Helm deployment complete."
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Cleaning workspace...'
+            // Cleans the current workspace directory (including the cloned repo subdirectories)
+            cleanWs()
+        }
+    }
+}
