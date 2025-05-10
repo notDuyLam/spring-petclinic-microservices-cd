@@ -72,6 +72,8 @@ pipeline {
 
                         // Build and Tag Images for changed modules
                         for (module in modules) {
+                            echo "Run unit test for: ${module}"
+                            sh "mvn test -pl ${module}"
                             def buildImagesCommand = "./mvnw clean install -pl ${module} -PbuildDocker -DskipTests"
                             echo "Build Images for affected modules: ${module}"
                             sh "${buildImagesCommand}"
