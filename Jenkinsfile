@@ -131,10 +131,10 @@ pipeline {
 
                     build job: 'developer_build', 
                         parameters: [
-                            string(name: 'CUSTOMERS_IMAGE_TAG', value: customersBranch),
-                            string(name: 'VETS_IMAGE_TAG',      value: vetsBranch),
-                            string(name: 'VISITS_IMAGE_TAG',    value: visitsBranch),
-                            string(name: 'GENAI_IMAGE_TAG',     value: genaiBranch)
+                            string(name: 'CUSTOMERS_SERVICE', value: customersBranch),
+                            string(name: 'VETS_SERVICE',      value: vetsBranch),
+                            string(name: 'VISITS_SERVICE',    value: visitsBranch),
+                            string(name: 'GENAI_SERVICE',     value: genaiBranch)
                         ],
                         wait: false
                 }

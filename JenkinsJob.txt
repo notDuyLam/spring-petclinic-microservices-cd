@@ -43,9 +43,9 @@ pipeline {
                     script {
                         def modules = [
                             [name: 'spring-petclinic-customers-service', branch: params.CUSTOMERS_SERVICE],
-                            [name: 'spring-petclinic-vets-service',      branch: params.VETS_SERVICE],
-                            [name: 'spring-petclinic-visits-service',    branch: params.VISITS_SERVICE],
-                            [name: 'spring-petclinic-genai-service',            branch: params.GENAI_SERVICE]
+                            [name: 'spring-petclinic-vets-service', branch: params.VETS_SERVICE],
+                            [name: 'spring-petclinic-visits-service', branch: params.VISITS_SERVICE],
+                            [name: 'spring-petclinic-genai-service', branch: params.GENAI_SERVICE]
                         ]
 
                         sh 'git fetch --all --tags'
