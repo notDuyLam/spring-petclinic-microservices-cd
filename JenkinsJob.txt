@@ -123,7 +123,7 @@ images:
                 script {
                     def namespace = "${env.K8S_NAMESPACE}-v${env.BUILD_ID}"
 
-                    def svcName = "spring-petclinic-api-gateway-service"
+                    def svcName = "api-gateway"
                     
                     def apiGatewayIngress = "spring-petclinic.${namespace}.api-gateway.com"
 
