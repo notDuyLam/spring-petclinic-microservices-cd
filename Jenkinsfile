@@ -67,6 +67,10 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 script {
+                    if (env.BRANCH_NAME == 'main') {
+                        env.COMMIT_HASH = 'latest'
+                    }
+
                     def modules = env.CHANGED_MODULES ? env.CHANGED_MODULES.split(',') : []
                     if (modules.size() > 0) {
 
@@ -120,13 +124,13 @@ pipeline {
                     def genaiBranch = 'main'
 
                     if (modules.contains('spring-petclinic-customers-service')) {
-                        customersBranch = env.COMMIT_HASH
+                        customersBranch = env.BRANCH_NAME
                     }
                     if (modules.contains('spring-petclinic-vets-service')) {
-                        vetsBranch = env.COMMIT_HASH
+                        vetsBranch = env.BRANCH_NAME
                     }
                     if (modules.contains('spring-petclinic-visits-service')) {
-                        visitsBranch = env.COMMIT_HASH
+                        visitsBranch = env.BRANCH_NAME
                     }
 
                     build job: 'developer_build', 
