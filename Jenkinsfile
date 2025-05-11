@@ -67,10 +67,6 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 script {
-                    if (env.BRANCH_NAME == 'main') {
-                        env.COMMIT_HASH = 'latest'
-                    }
-
                     def modules = env.CHANGED_MODULES ? env.CHANGED_MODULES.split(',') : []
                     if (modules.size() > 0) {
 
@@ -109,38 +105,6 @@ pipeline {
                     else {
                         echo "No changed modules; skipping Docker push."
                     }
-                }
-            }
-        }
-
-        stage('Trigger Developer Build Job') {
-            steps {
-                script {
-                    def modules = env.CHANGED_MODULES ? env.CHANGED_MODULES.split(',') : []
-
-                    def customersBranch = 'main'
-                    def vetsBranch = 'main'
-                    def visitsBranch = 'main'
-                    def genaiBranch = 'main'
-
-                    if (modules.contains('spring-petclinic-customers-service')) {
-                        customersBranch = env.BRANCH_NAME
-                    }
-                    if (modules.contains('spring-petclinic-vets-service')) {
-                        vetsBranch = env.BRANCH_NAME
-                    }
-                    if (modules.contains('spring-petclinic-visits-service')) {
-                        visitsBranch = env.BRANCH_NAME
-                    }
-
-                    build job: 'developer_build', 
-                        parameters: [
-                            string(name: 'CUSTOMERS_SERVICE', value: customersBranch),
-                            string(name: 'VETS_SERVICE',      value: vetsBranch),
-                            string(name: 'VISITS_SERVICE',    value: visitsBranch),
-                            string(name: 'GENAI_SERVICE',     value: genaiBranch)
-                        ],
-                        wait: false
                 }
             }
         }
