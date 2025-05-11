@@ -109,7 +109,7 @@ pipeline {
             }
         }
 
-        stage('Trigger Deploy Job') {
+        stage('Update Helm Chart') {
             steps {
                 script {
                     def modules = env.CHANGED_MODULES ? env.CHANGED_MODULES.split(',') : []
