@@ -121,7 +121,7 @@ pipeline {
                         parameters: [
                             string(name: 'CUSTOMERS_SERVICE_TAG', value: modules.contains('spring-petclinic-customers-service') ? env.COMMIT_HASH : 'latest'),
                             string(name: 'VETS_SERVICE_TAG',      value: modules.contains('spring-petclinic-vets-service')      ? env.COMMIT_HASH : 'latest'),
-                            string(name: 'VISITS_SERVICE_TAG',    value: modules.contains('spring-petclinic-visits-service')    ? env.COMMIT_HASH : 'latest'),)
+                            string(name: 'VISITS_SERVICE_TAG',    value: modules.contains('spring-petclinic-visits-service')    ? env.COMMIT_HASH : 'latest')
                         ]
                     } else {
                         echo "No changed modules; skipping trigger of deployment job."
