@@ -108,6 +108,28 @@ pipeline {
                 }
             }
         }
+
+        stage('Trigger Deploy Job') {
+            steps {
+                script {
+                    def modules = env.CHANGED_MODULES ? env.CHANGED_MODULES.split(',') : []
+                    if (modules.size() > 0) {
+                        echo "Triggering deployment job with updated modules..."
+
+                        build job: 'update_helm_chart', 
+                        wait: false,// không cần đợi job kia hoàn thành
+                        parameters: [
+                            string(name: 'CUSTOMERS_SERVICE_TAG', value: modules.contains('spring-petclinic-customers-service') ? env.COMMIT_HASH : 'latest'),
+                            string(name: 'VETS_SERVICE_TAG',      value: modules.contains('spring-petclinic-vets-service')      ? env.COMMIT_HASH : 'latest'),
+                            string(name: 'VISITS_SERVICE_TAG',    value: modules.contains('spring-petclinic-visits-service')    ? env.COMMIT_HASH : 'latest'),)
+                        ]
+                    } else {
+                        echo "No changed modules; skipping trigger of deployment job."
+                    }
+                }
+            }
+        }
+
     }
     
     post {
