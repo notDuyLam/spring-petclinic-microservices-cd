@@ -130,6 +130,27 @@ pipeline {
             }
         }
 
+        stage('Update Helm Chart for new tags') {
+            when {
+                allOf {
+                    branch 'main'
+                    expression {
+                        return env.GIT_TAG_NAME != null && env.GIT_TAG_NAME != ''
+                    }
+                }
+            }
+            steps {
+                script {
+                    echo "Triggering staging deployment for tag: ${env.GIT_TAG_NAME}"
+
+                    build job: 'update_helm_chart_staging',
+                    wait: false,
+                    parameters: [
+                        string(name: 'TAG_NAME', value: env.GIT_TAG_NAME)
+                    ]
+                }
+            }
+        }
     }
     
     post {
