@@ -139,7 +139,7 @@ pipeline {
             steps {
                 script {
                     def gitTag = sh(script: "git describe --tags --exact-match", returnStdout: true).trim()
-
+                    sh "git fetch origin main:refs/remotes/origin/main --no-tags"
                     // Kiểm tra commit có nằm trên nhánh main không
                     def isMainBranch = sh(script: "git branch -r --contains HEAD | grep 'origin/main' || true", returnStdout: true).trim() != ""
 
