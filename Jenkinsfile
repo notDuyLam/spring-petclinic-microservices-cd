@@ -129,28 +129,47 @@ pipeline {
                 }
             }
         }
-
         stage('Update Helm Chart for new tags') {
             when {
-                allOf {
-                    branch 'main'
-                    expression {
-                        return env.GIT_TAG_NAME != null && env.GIT_TAG_NAME != ''
-                    }
+                expression {
+                    // Chạy nếu commit hiện tại là một Git tag
+                    return sh(script: "git describe --tags --exact-match || true", returnStdout: true).trim() != ""
                 }
             }
             steps {
                 script {
-                    echo "Triggering staging deployment for tag: ${env.GIT_TAG_NAME}"
+                    def gitTag = sh(script: "git describe --tags --exact-match", returnStdout: true).trim()
 
-                    build job: 'update_helm_chart_staging',
-                    wait: false,
-                    parameters: [
-                        string(name: 'TAG_NAME', value: env.GIT_TAG_NAME)
-                    ]
+                    // Kiểm tra commit có nằm trên nhánh main không
+                    def isMainBranch = sh(script: "git branch -r --contains HEAD | grep 'origin/main' || true", returnStdout: true).trim() != ""
+
+                    if (!isMainBranch) {
+                        echo "Tag '${gitTag}' is not on 'main' branch. Skipping Helm update."
+                        return
+                    }
+
+                    def modules = env.CHANGED_MODULES ? env.CHANGED_MODULES.split(',') : []
+
+                    if (modules.size() > 0) {
+                        echo "Triggering Helm chart update for new tag '${gitTag}' and changed modules: ${modules.join(', ')}"
+
+                        build job: 'update_helm_chart_staging',
+                        wait: false,
+                        parameters: [
+                            string(name: 'CUSTOMERS_SERVICE_TAG', value: modules.contains('spring-petclinic-customers-service') ? gitTag : 'latest'),
+                            string(name: 'VETS_SERVICE_TAG', value: modules.contains('spring-petclinic-vets-service') ? gitTag : 'latest'),
+                            string(name: 'VISITS_SERVICE_TAG', value: modules.contains('spring-petclinic-visits-service') ? gitTag : 'latest')
+                        ]
+                    } else {
+                        echo "No changed modules for tag '${gitTag}'. Skipping deployment."
+                    }
                 }
             }
         }
+
+
+
+        
     }
     
     post {
