@@ -71,8 +71,8 @@ pipeline {
 
                     def imageTag = env.COMMIT_HASH
 
-                    def gitTag = sh(script: "git describe --tags --exact-match", returnStdout: true).trim()
-                    
+                    def gitTag = sh(script: "git describe --tags --exact-match || true", returnStdout: true).trim()
+
                     def isMainBranch = sh(script: "git branch -r --contains HEAD | grep 'origin/main' || true", returnStdout: true).trim() != ""
 
                     echo "${gitTag}, ${isMainBranch}"
@@ -105,11 +105,9 @@ pipeline {
                 script {
                     def modules = env.CHANGED_MODULES ? env.CHANGED_MODULES.split(',') : []
 
-                    def modules = env.CHANGED_MODULES ? env.CHANGED_MODULES.split(',') : []
-
                     def imageTag = env.COMMIT_HASH
 
-                    def gitTag = sh(script: "git describe --tags --exact-match", returnStdout: true).trim()
+                    def gitTag = sh(script: "git describe --tags --exact-match || true", returnStdout: true).trim()
 
                     def isMainBranch = sh(script: "git branch -r --contains HEAD | grep 'origin/main' || true", returnStdout: true).trim() != ""
 
