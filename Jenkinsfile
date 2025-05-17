@@ -84,6 +84,8 @@ pipeline {
                         imageTag = "dev"
                     }
 
+                    env.IMAGE_TAG = imageTag
+
                     if (modules.size() > 0) {
 
                         // Build and Tag Images for changed modules
@@ -105,12 +107,6 @@ pipeline {
                 script {
                     def modules = env.CHANGED_MODULES ? env.CHANGED_MODULES.split(',') : []
 
-                    def imageTag = env.COMMIT_HASH
-
-                    def gitTag = sh(script: "git describe --tags --exact-match || true", returnStdout: true).trim()
-
-                    def isMainBranch = sh(script: "git branch -r --contains HEAD | grep 'origin/main' || true", returnStdout: true).trim() != ""
-
                     if (modules.size() > 0) {
                         withCredentials([usernamePassword(
                             credentialsId: 'DOCKER_HUB_CREDENTIALS',
@@ -118,7 +114,7 @@ pipeline {
                             passwordVariable: 'DOCKER_PASS'
                         )]) {
                             for (module in modules) {
-                                def imageName = "${USERNAME}/${module}:${imageTag}"
+                                def imageName = "${USERNAME}/${module}:${env.IMAGE_TAG}"
                                 echo "Pushing Docker image: ${imageName}"
                                 sh "docker push ${imageName}"
                             }
