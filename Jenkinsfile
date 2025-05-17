@@ -73,6 +73,8 @@ pipeline {
 
                     def gitTag = sh(script: "git describe --tags --exact-match || true", returnStdout: true).trim()
 
+                    sh "git fetch origin main:refs/remotes/origin/main --no-tags"
+
                     def isMainBranch = sh(script: "git branch -r --contains HEAD | grep 'origin/main' || true", returnStdout: true).trim() != ""
 
                     echo "${gitTag}, ${isMainBranch}"
@@ -114,7 +116,7 @@ pipeline {
                             passwordVariable: 'DOCKER_PASS'
                         )]) {
                             sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin"
-                            
+
                             for (module in modules) {
                                 def imageName = "${USERNAME}/${module}:${env.IMAGE_TAG}"
                                 echo "Pushing Docker image: ${imageName}"
@@ -139,7 +141,6 @@ pipeline {
             steps {
                 script {
                     def gitTag = sh(script: "git describe --tags --exact-match", returnStdout: true).trim()
-                    sh "git fetch origin main:refs/remotes/origin/main --no-tags"
 
                     // Check if the git tag is on the main branch
                     def isMainBranch = sh(script: "git branch -r --contains HEAD | grep 'origin/main' || true", returnStdout: true).trim() != ""
