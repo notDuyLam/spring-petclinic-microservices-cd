@@ -144,14 +144,14 @@ pipeline {
                     def isMainBranch = sh(script: "git branch -r --contains HEAD | grep 'origin/main' || true", returnStdout: true).trim() != ""
 
                     if (!isMainBranch) {
-                        echo "Tag '${gitTag}' is not on 'main' branch. Skipping Helm update."
+                        echo "Tag '${env.IMAGE_TAG}' is not on 'main' branch. Skipping Helm update."
                         return
                     }
 
                     def modules = env.CHANGED_MODULES ? env.CHANGED_MODULES.split(',') : []
 
                     if (modules.size() > 0) {
-                        echo "Triggering Helm chart update for new tag '${gitTag}' and changed modules: ${modules.join(', ')}"
+                        echo "Triggering Helm chart update for new tag '${env.IMAGE_TAG}' and changed modules: ${modules.join(', ')}"
 
                         build job: 'update_helm_chart_staging',
                         wait: false,
