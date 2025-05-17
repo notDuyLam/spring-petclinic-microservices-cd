@@ -1,0 +1,166 @@
+pipeline {
+    agent {
+        label 'development-server'
+    }
+
+    options {
+        skipDefaultCheckout(true)
+    }
+
+    parameters {
+        string(
+            name: 'CUSTOMERS_SERVICE_TAG',
+            defaultValue: 'latest'
+        )
+        string(
+            name: 'VETS_SERVICE_TAG',
+            defaultValue: 'latest'
+        )
+        string(
+            name: 'VISITS_SERVICE_TAG',
+            defaultValue: 'latest'
+        )
+        string(
+            name: 'GENAI_SERVICE_TAG',
+            defaultValue: 'latest'
+        )
+        string(
+            name: 'MANIFEST_REPO',
+            defaultValue: 'https://github.com/22120207/spring-petclinic-microservices-helm-chart.git'
+        )
+        string(
+            name: 'MANIFEST_BRANCH',
+            defaultValue: 'main'
+        )
+    }
+
+    environment {
+        USERNAME = "tienminhktvn2"
+    }
+
+    stages {
+        stage('Checkout manifest repo') {
+            steps {
+                cleanWs()
+                
+                echo "Checkout repository manifest"
+                dir('k8s-manifests') {
+                    withCredentials([usernamePassword(
+                        credentialsId: 'GITHUB-JENKINS-TOKEN',
+                        usernameVariable: 'GIT_USER',
+                        passwordVariable: 'GIT_PASS'
+                    )]) {
+                        script {
+                            def manifestRepoUrl = params.MANIFEST_REPO.replace('https://', "https://${GIT_USER}:${GIT_PASS}@")
+                            sh """
+                                git clone ${manifestRepoUrl} .
+                                git checkout ${params.MANIFEST_BRANCH}
+                            """
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Sync Values to Values-Dev') {
+            steps {
+                script {
+                    echo "Sao chép nội dung từ values.yaml sang values-dev.yaml, giữ namespace: dev"
+                    dir('k8s-manifests') {
+                        sh "cat spring-petclinic-microservices-helm-chart/values.yaml"
+                        
+                        sh """
+                            echo 'namespace: dev' > spring-petclinic-microservices-helm-chart/values-dev.yaml
+                            echo '' >> spring-petclinic-microservices-helm-chart/values-dev.yaml
+                            grep -A 9999 '^namespace:.*' spring-petclinic-microservices-helm-chart/values.yaml | grep -v '^namespace:.*' >> spring-petclinic-microservices-helm-chart/values-dev.yaml
+                        """
+                        
+                        sh "cat spring-petclinic-microservices-helm-chart/values-dev.yaml"
+                    }
+                }
+            }
+        }
+
+        stage('Update Tags in Values-Dev') {
+            steps {
+                script {
+                    dir('k8s-manifests') {
+                        def serviceTagMap = [
+                            'customersService': params.CUSTOMERS_SERVICE_TAG,
+                            'vetsService': params.VETS_SERVICE_TAG,
+                            'visitsService': params.VISITS_SERVICE_TAG,
+                            'genaiService': params.GENAI_SERVICE_TAG
+                        ]
+                        
+                        def hasTagChanges = serviceTagMap.any { service, tag -> tag != 'latest' && tag != '' }
+                        def updatedServices = []
+                        
+                        if (hasTagChanges) {
+                            serviceTagMap.each { service, tag ->
+                                if (tag != 'latest' && tag != '') {
+                                    echo "Đang cập nhật tag cho ${service} => ${tag}"
+                                    sh """
+                                        sed -i "/^  ${service}:/,/^    tag:/s/\\s*tag:\\s*[^ ]*/    tag: ${tag}/" spring-petclinic-microservices-helm-chart/values-dev.yaml
+                                    """
+                                    updatedServices.add(service)
+                                }
+                            }
+                        } else {
+                            echo "There is no tag changed!"
+                        }
+                        
+                        def hasChanges = sh(script: """
+                            git diff --exit-code spring-petclinic-microservices-helm-chart/values-dev.yaml >/dev/null 2>&1 || echo "has-changes"
+                        """, returnStdout: true).trim()
+                        
+                        env.HAS_CHANGES = hasChanges
+                        env.UPDATED_SERVICES = updatedServices.join(',')
+                        
+                        echo "HAS_CHANGES: ${env.HAS_CHANGES}"
+                        echo "UPDATED_SERVICES: ${env.UPDATED_SERVICES}"
+                    }
+                }
+            }
+        }
+
+        stage('Commit and Push Changes') {
+            when {
+                expression { env.HAS_CHANGES == 'has-changes' && env.UPDATED_SERVICES != '' }
+            }
+            steps {
+                dir('k8s-manifests') {
+                    withCredentials([usernamePassword(
+                        credentialsId: 'GITHUB-JENKINS-TOKEN',
+                        usernameVariable: 'GIT_USER',
+                        passwordVariable: 'GIT_PASS'
+                    )]) {
+                        script {
+                            def updatedServices = env.UPDATED_SERVICES.split(',').collect { it.replace('Service', '-service') }.join(', ')
+                            def commitMessage = "Update values-dev.yaml with new tags for ${updatedServices}"
+                            
+                            sh """
+                                git config user.email "caotienminhktvn3@gmail.com"
+                                git config user.name "22120207"
+                                git add spring-petclinic-microservices-helm-chart/values-dev.yaml
+                                git commit -m "${commitMessage}"
+                                git push origin ${params.MANIFEST_BRANCH}
+                            """
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            cleanWs()
+        }
+        success {
+            echo "Pipeline succeed! The values-dev.yaml file had been updated with new image tags"
+        }
+        failure {
+            echo "Pipeline Failed!"
+        }
+    }
+}

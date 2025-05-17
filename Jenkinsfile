@@ -68,6 +68,22 @@ pipeline {
             steps {
                 script {
                     def modules = env.CHANGED_MODULES ? env.CHANGED_MODULES.split(',') : []
+
+                    def imageTag = env.COMMIT_HASH
+
+                    def gitTag = sh(script: "git describe --tags --exact-match", returnStdout: true).trim()
+                    
+                    def isMainBranch = sh(script: "git branch -r --contains HEAD | grep 'origin/main' || true", returnStdout: true).trim() != ""
+
+                    echo "${gitTag}, ${isMainBranch}"
+
+                    if (gitTag != "" && isMainBranch) {
+                        imageTag = gitTag
+                    }
+                    else if (gitTag == "" && isMainBranch) {
+                        imageTag = "dev"
+                    }
+
                     if (modules.size() > 0) {
 
                         // Build and Tag Images for changed modules
@@ -77,7 +93,7 @@ pipeline {
                             def buildImagesCommand = "bash ./mvnw clean install -pl ${module} -PbuildDocker -DskipTests"
                             echo "Build Images for affected modules: ${module}"
                             sh "${buildImagesCommand}"
-                            sh "docker tag springcommunity/${module}:latest ${USERNAME}/${module}:${env.COMMIT_HASH}"
+                            sh "docker tag springcommunity/${module}:latest ${USERNAME}/${module}:${imageTag}"
                         }
                     }
                 }
@@ -88,15 +104,23 @@ pipeline {
             steps {
                 script {
                     def modules = env.CHANGED_MODULES ? env.CHANGED_MODULES.split(',') : []
+
+                    def modules = env.CHANGED_MODULES ? env.CHANGED_MODULES.split(',') : []
+
+                    def imageTag = env.COMMIT_HASH
+
+                    def gitTag = sh(script: "git describe --tags --exact-match", returnStdout: true).trim()
+
+                    def isMainBranch = sh(script: "git branch -r --contains HEAD | grep 'origin/main' || true", returnStdout: true).trim() != ""
+
                     if (modules.size() > 0) {
                         withCredentials([usernamePassword(
                             credentialsId: 'DOCKER_HUB_CREDENTIALS',
                             usernameVariable: 'DOCKER_USER',
                             passwordVariable: 'DOCKER_PASS'
                         )]) {
-                            sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin"
                             for (module in modules) {
-                                def imageName = "${USERNAME}/${module}:${env.COMMIT_HASH}"
+                                def imageName = "${USERNAME}/${module}:${imageTag}"
                                 echo "Pushing Docker image: ${imageName}"
                                 sh "docker push ${imageName}"
                             }
@@ -104,6 +128,45 @@ pipeline {
                     } 
                     else {
                         echo "No changed modules; skipping Docker push."
+                    }
+                }
+            }
+        }
+
+        stage('Update Helm Chart for new Tags') {
+            when {
+                expression {
+                    // Run if current build is a Git tag
+                    return sh(script: "git describe --tags --exact-match || true", returnStdout: true).trim() != ""
+                }
+            }
+            steps {
+                script {
+                    def gitTag = sh(script: "git describe --tags --exact-match", returnStdout: true).trim()
+                    sh "git fetch origin main:refs/remotes/origin/main --no-tags"
+
+                    // Check if the git tag is on the main branch
+                    def isMainBranch = sh(script: "git branch -r --contains HEAD | grep 'origin/main' || true", returnStdout: true).trim() != ""
+
+                    if (!isMainBranch) {
+                        echo "Tag '${gitTag}' is not on 'main' branch. Skipping Helm update."
+                        return
+                    }
+
+                    def modules = env.CHANGED_MODULES ? env.CHANGED_MODULES.split(',') : []
+
+                    if (modules.size() > 0) {
+                        echo "Triggering Helm chart update for new tag '${gitTag}' and changed modules: ${modules.join(', ')}"
+
+                        build job: 'update_helm_chart_staging',
+                        wait: false,
+                        parameters: [
+                            string(name: 'CUSTOMERS_SERVICE_TAG', value: modules.contains('spring-petclinic-customers-service') ? gitTag : 'latest'),
+                            string(name: 'VETS_SERVICE_TAG', value: modules.contains('spring-petclinic-vets-service') ? gitTag : 'latest'),
+                            string(name: 'VISITS_SERVICE_TAG', value: modules.contains('spring-petclinic-visits-service') ? gitTag : 'latest')
+                        ]
+                    } else {
+                        echo "No changed modules for tag '${gitTag}'. Skipping deployment."
                     }
                 }
             }
@@ -117,6 +180,9 @@ pipeline {
 
             echo 'Cleaning up all Docker images…'
             sh 'docker image prune -af'
+
+            echo 'Clean Workspace'
+            cleanWs()
         }
     }
 }

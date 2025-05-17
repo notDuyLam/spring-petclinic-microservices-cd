@@ -43,9 +43,9 @@ pipeline {
                     script {
                         def modules = [
                             [name: 'spring-petclinic-customers-service', branch: params.CUSTOMERS_SERVICE],
-                            [name: 'spring-petclinic-vets-service', branch: params.VETS_SERVICE],
-                            [name: 'spring-petclinic-visits-service', branch: params.VISITS_SERVICE],
-                            [name: 'spring-petclinic-genai-service', branch: params.GENAI_SERVICE]
+                            [name: 'spring-petclinic-vets-service',      branch: params.VETS_SERVICE],
+                            [name: 'spring-petclinic-visits-service',    branch: params.VISITS_SERVICE],
+                            [name: 'spring-petclinic-genai-service',            branch: params.GENAI_SERVICE]
                         ]
 
                         sh 'git fetch --all --tags'
@@ -139,9 +139,28 @@ images:
 
                     echo "Add this line into your c:\\Windows\\System32\\Drivers\\etc\\hosts file: ${publicIp} ${apiGatewayIngress}"
 
-                    echo "Enter this URL into your browser for testing: http://${apiGatewayIngress}:8080"
+                    echo "Enter this URL into your browser for testing: http://${apiGatewayIngress}:31050"
 
                     echo "Or enter this URL: http://${publicIp}:${nodePort}"
+                }
+            }
+        }
+        stage('Trigger Cleanup Link') {
+            steps {
+                script {
+                    def namespace = "${env.K8S_NAMESPACE}-v${env.BUILD_ID}"
+                    def helmReleaseName = "spring-petclinic-${namespace}"
+
+                    def encodedNamespace = URLEncoder.encode(namespace, "UTF-8")
+                    def encodedReleaseName = URLEncoder.encode(helmReleaseName, "UTF-8")
+
+                    def triggerUrl = "http://jenkins.tienminh.com:8080/job/delete_developer_build/buildWithParameters" +
+                                     "?namespace=${encodedNamespace}&helmReleaseName=${encodedReleaseName}"
+
+                    // Create a hyperlink to trigger delete review release
+                    currentBuild.description = "[Click here to delete this review environment](${triggerUrl})"
+
+                    echo "Manual cleanup link: ${triggerUrl}"
                 }
             }
         }
