@@ -140,8 +140,6 @@ pipeline {
             }
             steps {
                 script {
-                    def gitTag = sh(script: "git describe --tags --exact-match", returnStdout: true).trim()
-
                     // Check if the git tag is on the main branch
                     def isMainBranch = sh(script: "git branch -r --contains HEAD | grep 'origin/main' || true", returnStdout: true).trim() != ""
 
@@ -158,12 +156,12 @@ pipeline {
                         build job: 'update_helm_chart_staging',
                         wait: false,
                         parameters: [
-                            string(name: 'CUSTOMERS_SERVICE_TAG', value: modules.contains('spring-petclinic-customers-service') ? gitTag : 'latest'),
-                            string(name: 'VETS_SERVICE_TAG', value: modules.contains('spring-petclinic-vets-service') ? gitTag : 'latest'),
-                            string(name: 'VISITS_SERVICE_TAG', value: modules.contains('spring-petclinic-visits-service') ? gitTag : 'latest')
+                            string(name: 'CUSTOMERS_SERVICE_TAG', value: modules.contains('spring-petclinic-customers-service') ? env.IMAGE_TAG : 'latest'),
+                            string(name: 'VETS_SERVICE_TAG', value: modules.contains('spring-petclinic-vets-service') ? env.IMAGE_TAG : 'latest'),
+                            string(name: 'VISITS_SERVICE_TAG', value: modules.contains('spring-petclinic-visits-service') ? env.IMAGE_TAG : 'latest')
                         ]
                     } else {
-                        echo "No changed modules for tag '${gitTag}'. Skipping deployment."
+                        echo "No changed modules for tag '${env.IMAGE_TAG}'. Skipping deployment."
                     }
                 }
             }
