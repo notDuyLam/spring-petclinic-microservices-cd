@@ -71,7 +71,7 @@ pipeline {
 
                     def imageTag = env.COMMIT_HASH
 
-                    def gitTag = sh(script: "git describe --tags --exact-match", returnStdout: true).trim()
+                    def gitTag = sh(script: "git describe --tags --exact-match || true", returnStdout: true).trim()
 
                     def isMainBranch = sh(script: "git branch -r --contains HEAD | grep 'origin/main' || true", returnStdout: true).trim() != ""
 
@@ -107,7 +107,7 @@ pipeline {
 
                     def imageTag = env.COMMIT_HASH
 
-                    def gitTag = sh(script: "git describe --tags --exact-match", returnStdout: true).trim()
+                    def gitTag = sh(script: "git describe --tags --exact-match || true", returnStdout: true).trim()
 
                     def isMainBranch = sh(script: "git branch -r --contains HEAD | grep 'origin/main' || true", returnStdout: true).trim() != ""
 
