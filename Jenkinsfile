@@ -73,6 +73,8 @@ pipeline {
 
                     def gitTag = sh(script: "git describe --tags --exact-match || true", returnStdout: true).trim()
 
+                    sh "git fetch origin main:refs/remotes/origin/main --no-tags"
+
                     def isMainBranch = sh(script: "git branch -r --contains HEAD | grep 'origin/main' || true", returnStdout: true).trim() != ""
 
                     echo "${gitTag}, ${isMainBranch}"
@@ -83,6 +85,8 @@ pipeline {
                     else if (gitTag == "" && isMainBranch) {
                         imageTag = "dev"
                     }
+
+                    env.IMAGE_TAG = imageTag
 
                     if (modules.size() > 0) {
 
@@ -105,20 +109,16 @@ pipeline {
                 script {
                     def modules = env.CHANGED_MODULES ? env.CHANGED_MODULES.split(',') : []
 
-                    def imageTag = env.COMMIT_HASH
-
-                    def gitTag = sh(script: "git describe --tags --exact-match || true", returnStdout: true).trim()
-
-                    def isMainBranch = sh(script: "git branch -r --contains HEAD | grep 'origin/main' || true", returnStdout: true).trim() != ""
-
                     if (modules.size() > 0) {
                         withCredentials([usernamePassword(
                             credentialsId: 'DOCKER_HUB_CREDENTIALS',
                             usernameVariable: 'DOCKER_USER',
                             passwordVariable: 'DOCKER_PASS'
                         )]) {
+                            sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin"
+
                             for (module in modules) {
-                                def imageName = "${USERNAME}/${module}:${imageTag}"
+                                def imageName = "${USERNAME}/${module}:${env.IMAGE_TAG}"
                                 echo "Pushing Docker image: ${imageName}"
                                 sh "docker push ${imageName}"
                             }
@@ -140,31 +140,28 @@ pipeline {
             }
             steps {
                 script {
-                    def gitTag = sh(script: "git describe --tags --exact-match", returnStdout: true).trim()
-                    sh "git fetch origin main:refs/remotes/origin/main --no-tags"
-
                     // Check if the git tag is on the main branch
                     def isMainBranch = sh(script: "git branch -r --contains HEAD | grep 'origin/main' || true", returnStdout: true).trim() != ""
 
                     if (!isMainBranch) {
-                        echo "Tag '${gitTag}' is not on 'main' branch. Skipping Helm update."
+                        echo "Tag '${env.IMAGE_TAG}' is not on 'main' branch. Skipping Helm update."
                         return
                     }
 
                     def modules = env.CHANGED_MODULES ? env.CHANGED_MODULES.split(',') : []
 
                     if (modules.size() > 0) {
-                        echo "Triggering Helm chart update for new tag '${gitTag}' and changed modules: ${modules.join(', ')}"
+                        echo "Triggering Helm chart update for new tag '${env.IMAGE_TAG}' and changed modules: ${modules.join(', ')}"
 
                         build job: 'update_helm_chart_staging',
                         wait: false,
                         parameters: [
-                            string(name: 'CUSTOMERS_SERVICE_TAG', value: modules.contains('spring-petclinic-customers-service') ? gitTag : 'latest'),
-                            string(name: 'VETS_SERVICE_TAG', value: modules.contains('spring-petclinic-vets-service') ? gitTag : 'latest'),
-                            string(name: 'VISITS_SERVICE_TAG', value: modules.contains('spring-petclinic-visits-service') ? gitTag : 'latest')
+                            string(name: 'CUSTOMERS_SERVICE_TAG', value: modules.contains('spring-petclinic-customers-service') ? env.IMAGE_TAG : 'latest'),
+                            string(name: 'VETS_SERVICE_TAG', value: modules.contains('spring-petclinic-vets-service') ? env.IMAGE_TAG : 'latest'),
+                            string(name: 'VISITS_SERVICE_TAG', value: modules.contains('spring-petclinic-visits-service') ? env.IMAGE_TAG : 'latest')
                         ]
                     } else {
-                        echo "No changed modules for tag '${gitTag}'. Skipping deployment."
+                        echo "No changed modules for tag '${env.IMAGE_TAG}'. Skipping deployment."
                     }
                 }
             }
