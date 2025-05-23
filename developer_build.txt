@@ -14,7 +14,7 @@ pipeline {
         DOCKER_USERNAME = "tienminhktvn2"
         GITHUB_USERNAME = "22120207"
         PROJECT_NAME = "spring-petclinic-microservices"
-        SCM_REPO_URL = "https://github.com/${GITHUB_USERNAME}/${PROJECT_NAME}.git"
+        SCM_REPO_URL = "https://github.com/${GITHUB_USERNAME}/${PROJECT_NAME}-cd.git"
         HELM_CHART_DIR = "${PROJECT_NAME}-helm-chart"
         HELM_REPO_URL = "https://github.com/${GITHUB_USERNAME}/${HELM_CHART_DIR}.git"
         K8S_NAMESPACE = "review"
@@ -39,7 +39,7 @@ pipeline {
 
         stage('Create values file') {
             steps {
-                dir("${env.PROJECT_NAME}") {
+                dir("${env.PROJECT_NAME}-cd") {
                     script {
                         def modules = [
                             [name: 'spring-petclinic-customers-service', branch: params.CUSTOMERS_SERVICE],
