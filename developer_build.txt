@@ -14,7 +14,7 @@ pipeline {
         DOCKER_USERNAME = "tienminhktvn2"
         GITHUB_USERNAME = "22120207"
         PROJECT_NAME = "spring-petclinic-microservices"
-        SCM_REPO_URL = "https://github.com/${GITHUB_USERNAME}/${PROJECT_NAME}.git"
+        SCM_REPO_URL = "https://github.com/${GITHUB_USERNAME}/${PROJECT_NAME}-cd.git"
         HELM_CHART_DIR = "${PROJECT_NAME}-helm-chart"
         HELM_REPO_URL = "https://github.com/${GITHUB_USERNAME}/${HELM_CHART_DIR}.git"
         K8S_NAMESPACE = "review"
@@ -39,7 +39,7 @@ pipeline {
 
         stage('Create values file') {
             steps {
-                dir("${env.PROJECT_NAME}") {
+                dir("${env.PROJECT_NAME}-cd") {
                     script {
                         def modules = [
                             [name: 'spring-petclinic-customers-service', branch: params.CUSTOMERS_SERVICE],
@@ -73,20 +73,16 @@ def valuesContent = """namespace: ${env.K8S_NAMESPACE}-v${env.BUILD_ID}
 
 images:
     genaiService:
-        repository: ${env.DOCKER_USERNAME}
-        name: spring-petclinic-genai-service
+        repository: ${env.DOCKER_USERNAME}/spring-petclinic-genai-service
         tag: ${moduleImageTags['spring-petclinic-genai-service']}
     customersService:
-        repository: ${env.DOCKER_USERNAME}
-        name: spring-petclinic-customers-service
+        repository: ${env.DOCKER_USERNAME}/spring-petclinic-customers-service
         tag: ${moduleImageTags['spring-petclinic-customers-service']}
     vetsService:
-        repository: ${env.DOCKER_USERNAME}
-        name: spring-petclinic-vets-service
+        repository: ${env.DOCKER_USERNAME}/spring-petclinic-vets-service
         tag: ${moduleImageTags['spring-petclinic-vets-service']}
     visitsService:
-        repository: ${env.DOCKER_USERNAME}
-        name: spring-petclinic-visits-service
+        repository: ${env.DOCKER_USERNAME}/spring-petclinic-visits-service
         tag: ${moduleImageTags['spring-petclinic-visits-service']}"""
 
                         def valuesFileName = "values-review-v${env.BUILD_ID}.yaml"
@@ -110,7 +106,25 @@ images:
 
                         def valuesFileName = "values-${env.K8S_NAMESPACE}-v${env.BUILD_ID}.yaml"
 
-                        def helmCommand = "helm upgrade --install ${helmReleaseName} ${env.HELM_CHART_DIR} --values ${env.HELM_CHART_DIR}/values.yaml -f ${valuesFileName} --create-namespace -n ${namespace}"
+                        sh "kubectl create namespace ${namespace} --dry-run=client -o yaml | kubectl apply -f -"
+
+                        withCredentials([usernamePassword(
+                            credentialsId: 'REGISTRY_CREDENTIALS',
+                            usernameVariable: 'DOCKER_USER',
+                            passwordVariable: 'DOCKER_PASS'
+                        )]) {
+                            sh """
+                            kubectl create secret docker-registry dockerhub-cred \\
+                                --docker-server=https://index.docker.io/v1/ \\
+                                --docker-username=${DOCKER_USER} \\
+                                --docker-password=${DOCKER_PASS} \\
+                                --docker-email=caotienminhktvn2@gmail.com \\
+                                -n ${namespace} \\
+                            --dry-run=client -o yaml | kubectl apply -f -
+                            """
+                        }
+
+                        def helmCommand = "helm upgrade --install ${helmReleaseName} ${env.HELM_CHART_DIR} --values ${env.HELM_CHART_DIR}/values.yaml -f ${valuesFileName} -n ${namespace}"
 
                         sh "${helmCommand}"
                     }
