@@ -117,10 +117,10 @@ pipeline {
                             usernameVariable: 'DOCKER_USER',
                             passwordVariable: 'DOCKER_PASS'
                         )]) {
-                            sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin"
+                            sh "echo \$DOCKER_PASS | docker login ${REGISTRY} -u \$DOCKER_USER --password-stdin"
 
                             for (module in modules) {
-                                def imageName = "${USERNAME}/${module}:${env.IMAGE_TAG}"
+                                def imageName = "${REGISTRY}/${REPO}/${module}:${env.IMAGE_TAG}"
                                 echo "Pushing Docker image: ${imageName}"
                                 sh "docker push ${imageName}"
                             }
