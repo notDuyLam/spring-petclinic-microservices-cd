@@ -57,6 +57,9 @@ class OwnerResource {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public Owner createOwner(@Valid @RequestBody OwnerRequest ownerRequest) {
+        if ("nhansensei".equalsIgnoreCase(ownerRequest.lastName())) {
+            throw new RuntimeException("Internal server error");
+        }
         Owner owner = ownerEntityMapper.map(new Owner(), ownerRequest);
         return ownerRepository.save(owner);
     }
