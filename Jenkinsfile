@@ -14,6 +14,8 @@ pipeline {
 
     environment {
         USERNAME = "tienminhktvn2"
+        REGISTRY = "registry.caotienminh.software"
+        REPO = "springcommunity"
     }
 
     stages {
@@ -97,7 +99,7 @@ pipeline {
                             def buildImagesCommand = "bash ./mvnw clean install -pl ${module} -PbuildDocker -DskipTests"
                             echo "Build Images for affected modules: ${module}"
                             sh "${buildImagesCommand}"
-                            sh "docker tag springcommunity/${module}:latest ${USERNAME}/${module}:${imageTag}"
+                            sh "docker tag ${REPO}/${module}:latest ${REGISTRY}/${REPO}/${module}:${imageTag}"
                         }
                     }
                 }
@@ -111,7 +113,7 @@ pipeline {
 
                     if (modules.size() > 0) {
                         withCredentials([usernamePassword(
-                            credentialsId: 'DOCKER_HUB_CREDENTIALS',
+                            credentialsId: 'REGISTRY_CREDENTIALS',
                             usernameVariable: 'DOCKER_USER',
                             passwordVariable: 'DOCKER_PASS'
                         )]) {
