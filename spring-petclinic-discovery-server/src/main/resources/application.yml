@@ -19,3 +19,8 @@ spring:
       on-profile: docker
     import: configserver:http://config-server:8888
 
+management:
+  tracing:
+    sampling:
+      probability: 1.0 # Đảm bảo 100% request được trace
+
