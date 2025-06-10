@@ -25,8 +25,9 @@ spring:
       api-key: ${OPENAI_API_KEY:demo}
       chat:
         options:
-          temperature: 0.7
-          model: gpt-4o-mini
+            temperature: 0.7
+            model: gpt-4o-mini
+
 
 logging:
   level:
@@ -42,8 +43,3 @@ spring:
     activate:
       on-profile: docker
     import: configserver:http://config-server:8888
-
-management:
-  tracing:
-    sampling:
-      probability: 1.0 # Đảm bảo 100% request được trace
