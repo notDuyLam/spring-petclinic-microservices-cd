@@ -10,3 +10,29 @@ spring:
         native:
           searchLocations: file:///${GIT_REPO}
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
+  tracing:
+    enabled: true
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      enabled: true
+      endpoint: "http://zipkin.tracing.svc.cluster.local:9411/api/v2/spans"
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+logging:
+  pattern:
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
+  level:
+    io.micrometer.tracing: DEBUG

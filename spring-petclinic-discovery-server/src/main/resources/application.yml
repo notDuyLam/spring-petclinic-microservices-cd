@@ -18,21 +18,30 @@ spring:
     activate:
       on-profile: docker
     import: configserver:http://config-server:8888
+---
+management:
+  endpoints:
+    web:
+      exposure:
+        include: prometheus
+  endpoint:
+    health:
+      show-details: always
+  tracing:
+    enabled: true
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      enabled: true
+      endpoint: "http://zipkin.tracing.svc.cluster.local:9411/api/v2/spans"
 
 logging:
   pattern:
-    console: "%clr(%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX}){faint} %clr(%5p) %clr([%X{traceId:-},%X{spanId:-}]){cyan} %clr([%thread]){blue} %clr(%logger{36}){magenta} : %m%n%wEx"
-    file: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %5p [%X{traceId:-},%X{spanId:-}] [%thread] %logger{36} - %msg%n"
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
   level:
+    org:
+      springframework:
+        boot: INFO
+        web: INFO
     io.micrometer.tracing: DEBUG
-    org.springframework.cloud.sleuth: DEBUG
-    org.springframework.cloud.sleuth.autoconfig: DEBUG
-    org.springframework.web: DEBUG
-  charset:
-    console: UTF-8
-    file: UTF-8
-
-management:
-  tracing:
-    sampling:
-      probability: 1.0
