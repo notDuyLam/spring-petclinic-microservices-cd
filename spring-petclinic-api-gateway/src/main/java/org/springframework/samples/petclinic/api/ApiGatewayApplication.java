@@ -38,6 +38,7 @@ import org.springframework.web.reactive.function.server.ServerResponse;
 
 import java.time.Duration;
 
+// small change to test push docker image lab 2
 
 /**
  * @author Maciej Szarlinski
