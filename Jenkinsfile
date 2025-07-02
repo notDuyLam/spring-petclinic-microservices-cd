@@ -13,9 +13,9 @@ pipeline {
     }
 
     environment {
-        USERNAME = "tienminhktvn2"
-        REGISTRY = "registry.caotienminh.software"
-        REPO = "springcommunity"
+        USERNAME = "lam1312200"
+        REGISTRY = "docker.io"
+        REPO = "lam1312200"
     }
 
     stages {
