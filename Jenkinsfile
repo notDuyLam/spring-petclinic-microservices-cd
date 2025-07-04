@@ -69,57 +69,43 @@ pipeline {
 
         stage('Build Docker Images') {
             steps {
-                script {   
+                script {
                     def modules = env.CHANGED_MODULES ? env.CHANGED_MODULES.split(',') : []
-        
+
                     def imageTag = env.COMMIT_HASH
-        
+
                     def gitTag = sh(script: "git describe --tags --exact-match || true", returnStdout: true).trim()
-        
+
                     sh "git fetch origin main:refs/remotes/origin/main --no-tags"
-        
+
                     def isMainBranch = sh(script: "git branch -r --contains HEAD | grep 'origin/main' || true", returnStdout: true).trim() != ""
-        
+
                     echo "${gitTag}, ${isMainBranch}"
-        
+
                     if (gitTag != "" && isMainBranch) {
                         imageTag = gitTag
                     }
                     else if (gitTag == "" && isMainBranch) {
                         imageTag = "dev"
                     }
-        
+
                     env.IMAGE_TAG = imageTag
-        
+
                     if (modules.size() > 0) {
-        
+
                         // Build and Tag Images for changed modules
                         for (module in modules) {
                             echo "Run unit test for: ${module}"
                             sh "mvn test -pl ${module}"
-        
-                            // Build jar without Docker
-                            echo "Build JAR for: ${module}"
-                            sh "bash ./mvnw clean install -pl ${module} -DskipTests"
-        
-                            // Build Docker image manually using docker buildx with --load
-                            echo "Build Docker image with buildx --load for: ${module}"
-                            sh """
-                                docker buildx build --load \\
-                                  -t ${REPO}/${module}:latest \\
-                                  -f docker/Dockerfile \\
-                                  ${module}
-                            """
-        
-                            // Tag image for registry
-                            echo "Tag Docker image with tag: ${imageTag}"
+                            def buildImagesCommand = "bash ./mvnw clean install -pl ${module} -PbuildDocker -DskipTests"
+                            echo "Build Images for affected modules: ${module}"
+                            sh "${buildImagesCommand}"
                             sh "docker tag ${REPO}/${module}:latest ${REGISTRY}/${REPO}/${module}:${imageTag}"
                         }
                     }
                 }
             }
         }
-
 
         stage('Push Docker Images') {
             steps {
