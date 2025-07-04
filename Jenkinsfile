@@ -61,7 +61,8 @@ pipeline {
                     
                     echo "Changed Folders: \n${changedFolders.join('\n')}"
                     
-                    env.CHANGED_MODULES = changedFolders.join(',')
+                    // env.CHANGED_MODULES = changedFolders.join(',')
+                    env.CHANGED_MODULES = "spring-petclinic-customers-service" // Only for test, will change back later
                 }
             }
         }
