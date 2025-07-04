@@ -62,8 +62,8 @@ pipeline {
                     echo "Changed Folders: \n${changedFolders.join('\n')}"
                     
                     // env.CHANGED_MODULES = changedFolders.join(',')
-                    env.CHANGED_MODULES = "spring-petclinic-customers-service,spring-petclinic-vets-service,spring-petclinic-visits-service,spring-petclinic-api-gateway,spring-petclinic-genai-service,spring-petclinic-admin-server"
-                    // env.CHANGED_MODULES = "spring-petclinic-discovery-server,spring-petclinic-config-server"                
+                    // env.CHANGED_MODULES = "spring-petclinic-customers-service,spring-petclinic-vets-service,spring-petclinic-visits-service,spring-petclinic-api-gateway,spring-petclinic-genai-service,spring-petclinic-admin-server"
+                    env.CHANGED_MODULES = "spring-petclinic-discovery-server,spring-petclinic-config-server"                
                 }
             }
         }
