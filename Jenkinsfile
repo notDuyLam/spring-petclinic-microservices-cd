@@ -70,6 +70,9 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 script {
+                    def dockerfilePath = "docker/Dockerfile"
+                    def buildContext = "${module}"
+                    
                     def modules = env.CHANGED_MODULES ? env.CHANGED_MODULES.split(',') : []
         
                     def imageTag = env.COMMIT_HASH
@@ -105,10 +108,10 @@ pipeline {
                             // Build Docker image manually using docker buildx with --load
                             echo "Build Docker image with buildx --load for: ${module}"
                             sh """
-                                docker buildx build --load \\
-                                  -t ${REPO}/${module}:latest \\
-                                  -f ${module}/Dockerfile \\
-                                  ${module}
+                                docker buildx build --load \
+                                  -t ${REPO}/${module}:latest \
+                                  -f ${dockerfilePath} \
+                                  ${buildContext}
                             """
         
                             // Tag image for registry
