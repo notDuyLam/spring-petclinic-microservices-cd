@@ -100,7 +100,7 @@ pipeline {
                             def buildImagesCommand = "bash ./mvnw clean install -pl ${module} -PbuildDocker -DskipTests"
                             echo "Build Images for affected modules: ${module}"
                             sh "${buildImagesCommand}"
-                            sh "docker tag ${REPO}/${module}:latest ${REGISTRY}/${REPO}/${module}:${imageTag}"
+                            sh "docker tag springcommunity/${module}:latest ${REGISTRY}/${REPO}/${module}:${imageTag}"
                         }
                     }
                 }
